@@ -6,7 +6,6 @@ import Notification from "../models/notification.model.js";
 
 export const createPost = async (req, res) => {
   try {
-    console.log(req);
     const { text } = req.body;
     let { img } = req.body;
     const userId = req.user._id.toString();
