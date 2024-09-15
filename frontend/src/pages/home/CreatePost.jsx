@@ -8,6 +8,7 @@ import { toast } from "react-hot-toast";
 const CreatePost = () => {
   const [text, setText] = useState("");
   const [img, setImg] = useState(null);
+  const [imgError, setImgError] = useState(""); // State untuk menampung pesan error gambar
 
   const imgRef = useRef(null);
 
@@ -17,6 +18,7 @@ const CreatePost = () => {
     mutate: createPost,
     isError,
     isPending,
+    error,
   } = useMutation({
     mutationFn: async ({ text, img }) => {
       try {
@@ -42,15 +44,31 @@ const CreatePost = () => {
   });
 
   const handleSubmit = (e) => {
+    e.preventDefault();
+
+    // Reset form setelah submit
     setText("");
     setImg(null);
-    e.preventDefault();
+
+    // Mengirimkan request ke API
     createPost({ text, img });
   };
 
   const handleImgChange = (e) => {
     const file = e.target.files[0];
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+
     if (file) {
+      // Cek apakah ukuran file lebih besar dari 5MB
+      if (file.size > maxSize) {
+        setImgError("Image size must be less than 5MB");
+        setImg(null); // Reset gambar jika terlalu besar
+        imgRef.current.value = null; // Reset input file
+        return;
+      }
+
+      setImgError(""); // Clear error jika ukuran sesuai
+
       const reader = new FileReader();
       reader.onload = () => {
         setImg(reader.result);
@@ -88,7 +106,6 @@ const CreatePost = () => {
             />
           </div>
         )}
-
         <div className="flex justify-between border-t py-2 border-t-gray-700">
           <div className="flex gap-1 items-center">
             <CiImageOn
@@ -108,7 +125,9 @@ const CreatePost = () => {
             {isPending ? "Posting..." : "Post"}
           </button>
         </div>
-        {isError && <div className="text-red-500">Something went wrong</div>}
+        {imgError && <div className="text-red-500">{imgError}</div>}{" "}
+        {/* Menampilkan pesan error */}
+        {isError && <div className="text-red-500">{error.message}</div>}
       </form>
     </div>
   );

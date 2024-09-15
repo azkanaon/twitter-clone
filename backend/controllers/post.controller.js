@@ -11,28 +11,38 @@ export const createPost = async (req, res) => {
     const userId = req.user._id.toString();
 
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ message: " User not found" });
+    if (!user) return res.status(404).json({ message: "User not found" });
 
     if (!text && !img) {
-      return res.status(400).json({ error: "Post mush have text or image" });
+      return res.status(400).json({ error: "Post must have text or image" });
     }
 
     if (img) {
+      // Menghitung ukuran file dari base64 string
+      const imgSizeInBytes = Buffer.byteLength(img, "base64");
+      const maxFileSize = 5 * 1024 * 1024; // 5MB in bytes
+
+      if (imgSizeInBytes > maxFileSize) {
+        return res
+          .status(400)
+          .json({ error: "Image size must be less than 5MB" });
+      }
+
       const uploadedResponse = await cloudinary.uploader.upload(img);
       img = uploadedResponse.secure_url;
     }
 
     const newPost = new Post({
+      user: userId,
       text,
       img,
-      user: userId,
     });
 
     await newPost.save();
     res.status(201).json(newPost);
   } catch (error) {
-    console.log("Error in createPost controller: ", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: "Internal server error" });
+    console.log("Error in createPost controller: ", error);
   }
 };
 
