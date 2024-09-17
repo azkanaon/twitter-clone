@@ -82,7 +82,9 @@ export const commentPost = async (req, res) => {
       return res.status(400).json({ error: "Comment must have text" });
     }
 
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).populate({
+      path: "comments.user",
+    });
     if (!post) {
       return res.status(404).json({ error: "Post not found" });
     }
@@ -92,7 +94,12 @@ export const commentPost = async (req, res) => {
     post.comments.push(comment);
     await post.save();
 
-    res.status(200).json(post);
+    // Send new data after push
+    const dataUpdate = await Post.findById(postId)
+      .populate({ path: "user", select: "-password" })
+      .populate({ path: "comments.user", select: "-password" });
+
+    res.status(200).json(dataUpdate);
   } catch (error) {
     console.log("Error in commentPost controller", error.message);
     res.status(500).json({ error: "Internal Server Error" });
