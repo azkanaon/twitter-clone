@@ -5,31 +5,60 @@ import { IoSettingsOutline } from "react-icons/io5";
 import { FaUser } from "react-icons/fa";
 import { FaHeart } from "react-icons/fa6";
 
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
+import { formatPostDate } from "../../utils/formatDate";
+
 const NotificationPage = () => {
-  const isLoading = false;
-  const notifications = [
-    {
-      _id: "1",
-      from: {
-        _id: "1",
-        username: "johndoe",
-        profileImg: "/avatars/boy2.png",
-      },
-      type: "follow",
+  const queryClient = useQueryClient();
+
+  const { data: notifications, isLoading } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      try {
+        const res = await fetch("/api/notification", {
+          method: "GET",
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to fetch notifications");
+        }
+
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
     },
-    {
-      _id: "2",
-      from: {
-        _id: "2",
-        username: "janedoe",
-        profileImg: "/avatars/girl1.png",
-      },
-      type: "like",
+  });
+
+  const { mutate: deleteNotif } = useMutation({
+    mutationFn: async () => {
+      try {
+        const res = await fetch("/api/notification", {
+          method: "DELETE",
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to delete notifications");
+        }
+
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
     },
-  ];
+
+    onSuccess: () => {
+      // Refetch notifications when a notification is deleted
+      queryClient.invalidateQueries(["notifications"]);
+      toast.success("Notifications deleted successfully");
+    },
+  });
 
   const deleteNotifications = () => {
-    alert("All notifications deleted");
+    deleteNotif();
   };
 
   return (
@@ -61,33 +90,38 @@ const NotificationPage = () => {
         )}
         {notifications?.map((notification) => (
           <div className="border-b border-gray-700" key={notification._id}>
-            <div className="flex gap-2 p-4">
-              {notification.type === "follow" && (
-                <FaUser className="w-7 h-7 text-primary" />
-              )}
-              {notification.type === "like" && (
-                <FaHeart className="w-7 h-7 text-red-500" />
-              )}
-              <Link to={`/profile/${notification.from.username}`}>
-                <div className="avatar">
-                  <div className="w-8 rounded-full">
-                    <img
-                      src={
-                        notification.from.profileImg ||
-                        "/avatar-placeholder.png"
-                      }
-                    />
+            <div className="flex justify-between">
+              <div className="flex gap-2 p-4">
+                {notification.type === "follow" && (
+                  <FaUser className="w-7 h-7 text-primary" />
+                )}
+                {notification.type === "like" && (
+                  <FaHeart className="w-7 h-7 text-red-500" />
+                )}
+                <Link to={`/profile/${notification.from.username}`}>
+                  <div className="avatar">
+                    <div className="w-8 rounded-full">
+                      <img
+                        src={
+                          notification.from.profileImg ||
+                          "/avatar-placeholder.png"
+                        }
+                      />
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-1">
-                  <span className="font-bold">
-                    @{notification.from.username}
-                  </span>{" "}
-                  {notification.type === "follow"
-                    ? "followed you"
-                    : "liked your post"}
-                </div>
-              </Link>
+                  <div className="flex gap-1">
+                    <span className="font-bold">
+                      @{notification.from.username}
+                    </span>{" "}
+                    {notification.type === "follow"
+                      ? "followed you"
+                      : "liked your post"}
+                  </div>
+                </Link>
+              </div>
+              <div className="mr-3 mt-2 text-slate-500">
+                <p>{formatPostDate(notification.createdAt)}</p>
+              </div>
             </div>
           </div>
         ))}
