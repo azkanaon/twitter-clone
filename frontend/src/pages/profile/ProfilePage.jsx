@@ -5,14 +5,15 @@ import Posts from "../../components/common/Posts";
 import ProfileHeaderSkeleton from "../../components/skeletons/ProfileHeaderSkeleton";
 import EditProfileModal from "./EditProfileModal";
 
-import { POSTS } from "../../utils/db/dummy";
-
 import { FaArrowLeft } from "react-icons/fa6";
 import { IoCalendarOutline } from "react-icons/io5";
 import { FaLink } from "react-icons/fa";
 import { MdEdit } from "react-icons/md";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatMemberSinceDate } from "../../utils/formatDate";
+
+import useFollow from "../../hooks/useFollow";
+import toast from "react-hot-toast";
 
 const ProfilePage = () => {
   const [coverImg, setCoverImg] = useState(null);
@@ -22,8 +23,30 @@ const ProfilePage = () => {
   const coverImgRef = useRef(null);
   const profileImgRef = useRef(null);
 
-  const isMyProfile = true;
   const { username } = useParams();
+
+  const queryClient = useQueryClient();
+
+  const { followUnfollow, isPending } = useFollow();
+
+  const { data: authUser } = useQuery({ queryKey: ["authUser"] });
+
+  const { data: myPosts } = useQuery({
+    queryKey: ["myPosts"],
+    queryFn: async () => {
+      try {
+        const res = await fetch(`/api/post/user/${username}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch user profile: ${data.error}`);
+        }
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+  });
 
   const {
     data: user,
@@ -47,6 +70,45 @@ const ProfilePage = () => {
     },
   });
 
+  const isMyProfile = authUser?._id === user?._id;
+  const amIFollowing = authUser?.following.includes(user?._id);
+
+  const { mutate: updateProfile, isPending: isUpdatingProfile } = useMutation({
+    mutationFn: async () => {
+      try {
+        const res = await fetch("/api/user/update", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            coverImg,
+            profileImg,
+          }),
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(`Failed to update profile: ${data.error}`);
+        }
+
+        return data;
+      } catch (error) {
+        throw new Error(error);
+      }
+    },
+    onSuccess: () => {
+      toast.success("Update profile success");
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["authUser"] }),
+        queryClient.invalidateQueries({ queryKey: ["userProfile"] }),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Failed to update profile: " + error.message);
+    },
+  });
+
   const handleImgChange = (e, state) => {
     const file = e.target.files[0];
     if (file) {
@@ -58,7 +120,6 @@ const ProfilePage = () => {
       reader.readAsDataURL(file);
     }
   };
-  console.log(user);
 
   useEffect(() => {
     refetch();
@@ -82,7 +143,7 @@ const ProfilePage = () => {
                 <div className="flex flex-col">
                   <p className="font-bold text-lg">{user?.fullName}</p>
                   <span className="text-sm text-slate-500">
-                    {POSTS?.length} posts
+                    {myPosts?.length} {myPosts?.length <= 1 ? "post" : "posts"}
                   </span>
                 </div>
               </div>
@@ -138,21 +199,23 @@ const ProfilePage = () => {
                 </div>
               </div>
               <div className="flex justify-end px-4 mt-5">
-                {isMyProfile && <EditProfileModal />}
+                {isMyProfile && <EditProfileModal authUser={authUser} />}
                 {!isMyProfile && (
                   <button
                     className="btn btn-outline rounded-full btn-sm"
-                    onClick={() => alert("Followed successfully")}
+                    onClick={() => followUnfollow(user._id)}
                   >
-                    Follow
+                    {isPending && "Loading..."}
+                    {!isPending && amIFollowing && "Unfollow"}
+                    {!isPending && !amIFollowing && "Follow"}
                   </button>
                 )}
                 {(coverImg || profileImg) && (
                   <button
                     className="btn btn-primary rounded-full btn-sm text-white px-4 ml-2"
-                    onClick={() => alert("Profile updated successfully")}
+                    onClick={() => updateProfile()}
                   >
-                    Update
+                    {isUpdatingProfile ? "Updating..." : "Update"}
                   </button>
                 )}
               </div>
@@ -169,21 +232,25 @@ const ProfilePage = () => {
                 </div>
 
                 <div className="flex gap-2 flex-wrap">
-                  {user?.link && (
+                  {
                     <div className="flex gap-1 items-center ">
                       <>
                         <FaLink className="w-3 h-3 text-slate-500" />
                         <a
-                          href="https://youtube.com/@asaprogrammer_"
-                          target="_blank"
+                          href={user.link ? `${user.link}` : "#"}
+                          target={user.link ? `blank` : ""}
                           rel="noreferrer"
-                          className="text-sm text-blue-500 hover:underline"
+                          className={`text-sm ${
+                            user.link
+                              ? "text-blue-500 hover:underline"
+                              : "text-slate-500 cursor-default"
+                          }`}
                         >
-                          youtube.com/@asaprogrammer_
+                          {user.link ? user.link : ` not setting link yet`}
                         </a>
                       </>
                     </div>
-                  )}
+                  }
                   <div className="flex gap-2 items-center">
                     <IoCalendarOutline className="w-4 h-4 text-slate-500" />
                     <span className="text-sm text-slate-500">
