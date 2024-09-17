@@ -226,11 +226,14 @@ export const getUserPost = async (req, res) => {
     const { username } = req.params;
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ error: "User not found" });
+    console.log(username);
 
-    const posts = await Post.findOne({ user: user._id })
+    const posts = await Post.find({ user: user._id })
       .sort({ createdAt: -1 })
       .populate({ path: "user", select: "-password" })
       .populate({ path: "comments.user", select: "-password" });
+    console.log(posts);
+
     res.status(200).json(posts);
   } catch (error) {
     console.log("Error in getUserPost controller", error.message);
