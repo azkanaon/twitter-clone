@@ -73,41 +73,42 @@ const ProfilePage = () => {
   const isMyProfile = authUser?._id === user?._id;
   const amIFollowing = authUser?.following.includes(user?._id);
 
-  const { mutate: updateProfile, isPending: isUpdatingProfile } = useMutation({
-    mutationFn: async () => {
-      try {
-        const res = await fetch("/api/user/update", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            coverImg,
-            profileImg,
-          }),
-        });
+  const { mutateAsync: updateProfile, isPending: isUpdatingProfile } =
+    useMutation({
+      mutationFn: async () => {
+        try {
+          const res = await fetch("/api/user/update", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              coverImg,
+              profileImg,
+            }),
+          });
 
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(`Failed to update profile: ${data.error}`);
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(`Failed to update profile: ${data.error}`);
+          }
+
+          return data;
+        } catch (error) {
+          throw new Error(error);
         }
-
-        return data;
-      } catch (error) {
-        throw new Error(error);
-      }
-    },
-    onSuccess: () => {
-      toast.success("Update profile success");
-      Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["authUser"] }),
-        queryClient.invalidateQueries({ queryKey: ["userProfile"] }),
-      ]);
-    },
-    onError: (error) => {
-      toast.error("Failed to update profile: " + error.message);
-    },
-  });
+      },
+      onSuccess: () => {
+        toast.success("Update profile success");
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["authUser"] }),
+          queryClient.invalidateQueries({ queryKey: ["userProfile"] }),
+        ]);
+      },
+      onError: (error) => {
+        toast.error("Failed to update profile: " + error.message);
+      },
+    });
 
   const handleImgChange = (e, state) => {
     const file = e.target.files[0];
@@ -213,7 +214,11 @@ const ProfilePage = () => {
                 {(coverImg || profileImg) && (
                   <button
                     className="btn btn-primary rounded-full btn-sm text-white px-4 ml-2"
-                    onClick={() => updateProfile()}
+                    onClick={async () => {
+                      await updateProfile();
+                      setCoverImg(null);
+                      setProfileImg(null);
+                    }}
                   >
                     {isUpdatingProfile ? "Updating..." : "Update"}
                   </button>

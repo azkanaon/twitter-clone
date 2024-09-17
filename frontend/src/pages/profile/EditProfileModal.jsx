@@ -31,8 +31,9 @@ const EditProfileModal = ({ authUser }) => {
         });
 
         const data = await res.json();
+
         if (!res.ok) {
-          throw new Error(`Failed to update profile: ${data.error}`);
+          throw new Error(` ${data.message}`);
         }
 
         return data;
@@ -48,7 +49,7 @@ const EditProfileModal = ({ authUser }) => {
       ]);
     },
     onError: (error) => {
-      toast.error("Failed to update profile: " + error.message);
+      toast.error(error.message);
     },
   });
 
